@@ -33,13 +33,26 @@ type client struct {
 	msgChan chan string
 }
 
-// NewClient : returns  client
+// NewClient returns  client
+// Arg: (addr string)
+//
+// Default GQRX port : 7356
+//
+// Example:
+//
+//	   addr := "127.0.0.1:7356"
+//	   c := gqrx.NewClient(addr)
+//	   if err := c.Connect(); err != nil {
+//		      log.Printf("Error connecting: %v", err)
+//		      return
+//	   }
 func NewClient(addr string) *client {
 	newClient := &client{addr: addr}
 	newClient.msgChan = make(chan string)
 	return newClient
 }
 
+// Connect Connect to GQRX
 func (c *client) Connect() error {
 	var err error
 	c.conn, err = net.Dial("tcp", c.addr)
@@ -52,13 +65,15 @@ func (c *client) Connect() error {
 	return nil
 }
 
-func (c *client) Disconnect() {
-	// TODO : stop listener
-	// TODO : clear channel
-	// TODO : disconnect
-	fmt.Println(c.getString(GQRX_Close_conn))
+// Disconnect Disconnect from GQRX
+func (c *client) Disconnect() error {
+	if _, err := c.getString(GQRX_Close_conn); err != nil {
+		return fmt.Errorf("failed to disconnect from server: %s", err)
+	}
+	return nil
 }
 
+// SetDemod (mode string, bandwidth int64)
 func (c *client) SetDemod(mode string, bandwidth int64) error {
 	demodExists := false
 	for _, demod := range Demods {
@@ -74,6 +89,11 @@ func (c *client) SetDemod(mode string, bandwidth int64) error {
 		return fmt.Errorf("failed to set mode error: %v", err)
 	}
 	return nil
+}
+
+// GetMod return mode as string
+func (c *client) GetMod() (string, error) {
+	return c.getString(GQRX_Get_Mod)
 }
 
 // GetDspStatus Return the status if the DSP
@@ -112,7 +132,7 @@ func (c *client) GetMute() (bool, error) {
 	return true, nil
 }
 
-// SetMute
+// SetMute true = mute, false = unmute
 func (c *client) SetMute(input bool) error {
 	muteStatus := 0
 	if input {
@@ -124,12 +144,12 @@ func (c *client) SetMute(input bool) error {
 	return nil
 }
 
-// GetSql
+// GetSql returns SQL as float64
 func (c *client) GetSql() (float64, error) {
 	return c.getFloat(GQRX_Get_Sql)
 }
 
-// SetSql
+// SetSql float64 set SQL
 func (c *client) SetSql(input float64) error {
 	if _, err := c.getString(fmt.Sprintf("%s %.2f", GQRX_Set_Sql, input)); err != nil {
 		return fmt.Errorf("failed to set sql: %v", err)
@@ -137,7 +157,7 @@ func (c *client) SetSql(input float64) error {
 	return nil
 }
 
-// GetSigStrength yep!
+// GetSigStrength Return signal strength
 func (c *client) GetSigStrength() (float64, error) {
 	return c.getFloat(GQRX_Get_Sig_Strength)
 }
@@ -157,11 +177,6 @@ func (c *client) GetFreq() (int64, error) {
 }
 
 ////////////////////~~dev funcs~~///////////////////////////
-
-// GetOpts arg (u, l)
-func (c *client) GetOpts(input string) (string, error) {
-	return c.getString(fmt.Sprintf("%s ?", input))
-}
 
 // GetTestValue string
 func (c *client) GetTestValue(input string) (string, error) {
