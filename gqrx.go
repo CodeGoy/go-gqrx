@@ -25,7 +25,7 @@ var (
 	Demods = []string{"OFF", "RAW", "AM", "AMS", "LSB", "USB", "CWL", "CWR", "CWU", "CW", "FM", "WFM", "WFM_ST", "WFM_ST_OIRT"}
 )
 
-type client struct {
+type Client struct {
 	conn    net.Conn
 	reader  *bufio.Reader
 	writer  *bufio.Writer
@@ -33,7 +33,7 @@ type client struct {
 	msgChan chan string
 }
 
-// NewClient returns  client
+// NewClient returns  Client
 // Arg: (addr string)
 //
 // Default GQRX port : 7356
@@ -41,19 +41,19 @@ type client struct {
 // Example:
 //
 //	   addr := "127.0.0.1:7356"
-//	   c := gqrx.NewClient(addr)
-//	   if err := c.Connect(); err != nil {
+//	   Client := gqrx.NewClient(addr)
+//	   if err := Client.Connect(); err != nil {
 //		      log.Printf("Error connecting: %v", err)
 //		      return
 //	   }
-func NewClient(addr string) *client {
-	newClient := &client{addr: addr}
+func NewClient(addr string) *Client {
+	newClient := &Client{addr: addr}
 	newClient.msgChan = make(chan string)
 	return newClient
 }
 
 // Connect Connect to GQRX
-func (c *client) Connect() error {
+func (c *Client) Connect() error {
 	var err error
 	c.conn, err = net.Dial("tcp", c.addr)
 	if err != nil {
@@ -66,7 +66,7 @@ func (c *client) Connect() error {
 }
 
 // Disconnect Disconnect from GQRX
-func (c *client) Disconnect() error {
+func (c *Client) Disconnect() error {
 	if _, err := c.getString(GQRX_Close_conn); err != nil {
 		return fmt.Errorf("failed to disconnect from server: %s", err)
 	}
@@ -74,7 +74,13 @@ func (c *client) Disconnect() error {
 }
 
 // SetDemod (mode string, bandwidth int64)
-func (c *client) SetDemod(mode string, bandwidth int64) error {
+//
+// Example:
+//
+//	if err := Client.SetDemod("WFM_ST", 160000); err != nil {
+//		return
+//	}
+func (c *Client) SetDemod(mode string, bandwidth int64) error {
 	demodExists := false
 	for _, demod := range Demods {
 		if demod == mode {
@@ -91,13 +97,30 @@ func (c *client) SetDemod(mode string, bandwidth int64) error {
 	return nil
 }
 
-// GetMod return mode as string
-func (c *client) GetMod() (string, error) {
-	return c.getString(GQRX_Get_Mod)
+// GetMod return mode as string and mode bandwidth as int64
+//
+// Example:
+//
+//	currentMode, currentBandwidth, err := Client.GetMod()
+//	if err != nil {
+//		return
+//	}
+//	fmt.Printf("Mode: %s\nBandwidth: %d\n", currentMode, currentBandwidth)
+func (c *Client) GetMod() (string, int64, error) {
+	// Gqrx returns two lines, line 1 = mode string, line 2 = mode bandwidth
+	modValue, err := c.getString(GQRX_Get_Mod)
+	if err != nil {
+		return "", 0, err
+	}
+	bandwidthInt, err := strconv.ParseInt(<-c.msgChan, 10, 64)
+	if err != nil {
+		return "", 0, err
+	}
+	return modValue, bandwidthInt, nil
 }
 
 // GetDspStatus Return the status if the DSP
-func (c *client) GetDspStatus() (bool, error) {
+func (c *Client) GetDspStatus() (bool, error) {
 	dspStatus, err := c.getInt64("u DSP")
 	if err != nil {
 		return false, err
@@ -109,7 +132,7 @@ func (c *client) GetDspStatus() (bool, error) {
 }
 
 // SetDspStatus true = play, false = stop
-func (c *client) SetDspStatus(status bool) error {
+func (c *Client) SetDspStatus(status bool) error {
 	playCommand := "U DSP 0"
 	if status {
 		playCommand = "U DSP 1"
@@ -121,7 +144,7 @@ func (c *client) SetDspStatus(status bool) error {
 }
 
 // GetMute
-func (c *client) GetMute() (bool, error) {
+func (c *Client) GetMute() (bool, error) {
 	muteStatus, err := c.getInt64(GQRX_Get_Mute)
 	if err != nil {
 		return false, fmt.Errorf("failed to get mute status: %v", err)
@@ -133,7 +156,7 @@ func (c *client) GetMute() (bool, error) {
 }
 
 // SetMute true = mute, false = unmute
-func (c *client) SetMute(input bool) error {
+func (c *Client) SetMute(input bool) error {
 	muteStatus := 0
 	if input {
 		muteStatus = 1
@@ -145,12 +168,12 @@ func (c *client) SetMute(input bool) error {
 }
 
 // GetSql returns SQL as float64
-func (c *client) GetSql() (float64, error) {
+func (c *Client) GetSql() (float64, error) {
 	return c.getFloat(GQRX_Get_Sql)
 }
 
 // SetSql float64 set SQL
-func (c *client) SetSql(input float64) error {
+func (c *Client) SetSql(input float64) error {
 	if _, err := c.getString(fmt.Sprintf("%s %.2f", GQRX_Set_Sql, input)); err != nil {
 		return fmt.Errorf("failed to set sql: %v", err)
 	}
@@ -158,12 +181,12 @@ func (c *client) SetSql(input float64) error {
 }
 
 // GetSigStrength Return signal strength
-func (c *client) GetSigStrength() (float64, error) {
+func (c *Client) GetSigStrength() (float64, error) {
 	return c.getFloat(GQRX_Get_Sig_Strength)
 }
 
 // SetFreq wonder What this does?
-func (c *client) SetFreq(freq int64) error {
+func (c *Client) SetFreq(freq int64) error {
 	_, err := c.getString(GQRX_Set_Freq + fmt.Sprintf(" %d", freq))
 	if err != nil {
 		return err
@@ -172,20 +195,20 @@ func (c *client) SetFreq(freq int64) error {
 }
 
 // GetFreq return
-func (c *client) GetFreq() (int64, error) {
+func (c *Client) GetFreq() (int64, error) {
 	return c.getInt64(GQRX_Get_Freq)
 }
 
 ////////////////////~~dev funcs~~///////////////////////////
 
 // GetTestValue string
-func (c *client) GetTestValue(input string) (string, error) {
+func (c *Client) GetTestValue(input string) (string, error) {
 	return c.getString(fmt.Sprintf("%s", input))
 }
 
 ////////////////////~~Private funcs~~///////////////////////////
 
-func (c *client) getFloat(msg string) (float64, error) {
+func (c *Client) getFloat(msg string) (float64, error) {
 	if err := c.sendMsg(msg); err != nil {
 		return 0.0, err
 	}
@@ -198,7 +221,7 @@ func (c *client) getFloat(msg string) (float64, error) {
 	return f, nil
 }
 
-func (c *client) getInt64(msg string) (int64, error) {
+func (c *Client) getInt64(msg string) (int64, error) {
 	if err := c.sendMsg(msg); err != nil {
 		return 0, err
 	}
@@ -210,7 +233,7 @@ func (c *client) getInt64(msg string) (int64, error) {
 	return i, nil
 }
 
-func (c *client) getString(msg string) (string, error) {
+func (c *Client) getString(msg string) (string, error) {
 	if err := c.sendMsg(msg); err != nil {
 		return "", err
 	}
@@ -218,17 +241,19 @@ func (c *client) getString(msg string) (string, error) {
 	return value, nil
 }
 
-func (c *client) sendMsg(msg string) (err error) {
+func (c *Client) sendMsg(msg string) (err error) {
 	_, err = c.writer.WriteString(fmt.Sprintf("%s\r\n", msg))
 	if err != nil {
 		fmt.Println("Error sending command:", err)
 		return
 	}
-	c.writer.Flush()
+	if err := c.writer.Flush() ; err != nil {
+		return err
+	}
 	return
 }
 
-func (c *client) listen() {
+func (c *Client) listen() {
 	go func() {
 		for {
 			res, err := c.reader.ReadString('\n')
