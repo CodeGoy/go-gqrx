@@ -3,6 +3,7 @@ package gqrx
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -11,8 +12,8 @@ import (
 const (
 	GQRX_Get_Freq         = "f"
 	GQRX_Set_Freq         = "F"
-	GQRX_Get_Mod          = "m"
-	GQRX_Set_Mod          = "M"
+	GQRX_Get_Demod        = "m"
+	GQRX_Set_Demod        = "M"
 	GQRX_Get_Sig_Strength = "l STRENGTH"
 	GQRX_Get_Sql          = "l SQL"
 	GQRX_Set_Sql          = "L SQL"
@@ -65,10 +66,12 @@ func (c *Client) Connect() error {
 	return nil
 }
 
-// Disconnect Disconnect from GQRX
 func (c *Client) Disconnect() error {
-	if _, err := c.getString(GQRX_Close_conn); err != nil {
-		return fmt.Errorf("failed to disconnect from server: %s", err)
+	if err := c.sendMsg(GQRX_Close_conn); err != nil {
+		return fmt.Errorf("gqrx: disconnect failed: %v", err)
+	}
+	if err := c.conn.Close(); err != nil {
+		return fmt.Errorf("c.conn.Close(): disconnect failed: %v", err)
 	}
 	return nil
 }
@@ -88,27 +91,27 @@ func (c *Client) SetDemod(mode string, bandwidth int64) error {
 		}
 	}
 	if demodExists == false {
-		return fmt.Errorf("Mode not found: %s\n  Avaliable modes:\n   %v", mode, Demods)
+		return fmt.Errorf("Mode not found: %s\nAvaliable modes:\n	%v", mode, Demods)
 	}
-	_, err := c.getString(GQRX_Set_Mod + fmt.Sprintf(" %s %d", mode, bandwidth))
+	_, err := c.getString(GQRX_Set_Demod + fmt.Sprintf(" %s %d", mode, bandwidth))
 	if err != nil {
 		return fmt.Errorf("failed to set mode error: %v", err)
 	}
 	return nil
 }
 
-// GetMod return mode as string and mode bandwidth as int64
+// GetDemod return mode as string and mode bandwidth as int64
 //
 // Example:
 //
-//	currentMode, currentBandwidth, err := Client.GetMod()
+//	currentMode, currentBandwidth, err := Client.GetDemod()
 //	if err != nil {
 //		return
 //	}
 //	fmt.Printf("Mode: %s\nBandwidth: %d\n", currentMode, currentBandwidth)
-func (c *Client) GetMod() (string, int64, error) {
+func (c *Client) GetDemod() (string, int64, error) {
 	// Gqrx returns two lines, line 1 = mode string, line 2 = mode bandwidth
-	modValue, err := c.getString(GQRX_Get_Mod)
+	modValue, err := c.getString(GQRX_Get_Demod)
 	if err != nil {
 		return "", 0, err
 	}
@@ -202,8 +205,8 @@ func (c *Client) GetFreq() (int64, error) {
 ////////////////////~~dev funcs~~///////////////////////////
 
 // GetTestValue string
-func (c *Client) GetTestValue(input string) (string, error) {
-	return c.getString(fmt.Sprintf("%s", input))
+func (c *Client) GetUserValue(input string) (string, error) {
+	return c.getString(input)
 }
 
 ////////////////////~~Private funcs~~///////////////////////////
@@ -244,10 +247,10 @@ func (c *Client) getString(msg string) (string, error) {
 func (c *Client) sendMsg(msg string) (err error) {
 	_, err = c.writer.WriteString(fmt.Sprintf("%s\r\n", msg))
 	if err != nil {
-		fmt.Println("Error sending command:", err)
-		return
+		return fmt.Errorf("error sending command: %v", err)
+
 	}
-	if err := c.writer.Flush() ; err != nil {
+	if err := c.writer.Flush(); err != nil {
 		return err
 	}
 	return
@@ -258,7 +261,7 @@ func (c *Client) listen() {
 		for {
 			res, err := c.reader.ReadString('\n')
 			if err != nil {
-				fmt.Println("Error reading c.msgChan:", err)
+				log.Printf("Error reading c.msgChan: %v", err)
 				return
 			}
 			c.msgChan <- strings.Replace(res, "\n", "", 1)

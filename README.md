@@ -1,3 +1,12 @@
+# go-gqrx
+
+A library that provides a client to connect to [GQRX](https://github.com/gqrx-sdr/gqrx)
+
+## use
+
+This example starts the DSP and tunes to 92.7FM
+
+```go
 package main
 
 import (
@@ -52,3 +61,4 @@ func main() {
 		log.Fatalf("Error disconnecting: %v", err)
 	}
 }
+```
