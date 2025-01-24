@@ -4,7 +4,7 @@ A library that provides a client to connect to [GQRX](https://github.com/gqrx-sd
 
 ## use
 
-This example starts the DSP and tunes to 92.7FM
+This example starts the DSP and tunes to 93.7FM
 
 ```go
 package main
@@ -23,19 +23,28 @@ func main() {
 		return
 	}
 	// get current mode and bandwidth
-	currentMode, currentBandwidth, err := client.GetDemod()
+	mode, bandwidth, err := client.GetDemod()
 	if err != nil {
 		log.Fatalf("Error getting current mode: %v", err)
 	}
+	fmt.Printf("Mode: %s\nBandwidth: %d\n", mode, bandwidth)
 	// get current freq
-	currentFreq, err := client.GetFreq()
+	freq, err := client.GetFreq()
 	if err != nil {
 		log.Fatalf("Error getting frequency: %v", err)
 	}
-	fmt.Printf("Mode: %s\nBandwidth: %d\nFreq: %d\n", currentMode, currentBandwidth, currentFreq)
-	// mute audio
-	if err := client.SetMute(false); err != nil {
-		log.Fatalf("Error setting mute: %v", err)
+	fmt.Printf("Freq: %d\n", freq)
+	// get mute status
+	muted, err := client.GetMute()
+	if err != nil {
+		log.Fatalf("Error getting mute: %v", err)
+	}
+	// if muted
+	if muted {
+		// unmute audio
+		if err := client.SetMute(false); err != nil {
+			log.Fatalf("Error setting mute: %v", err)
+		}
 	}
 	// True on DPS if not running
 	dspStatus, err := client.GetDspStatus()
@@ -56,9 +65,29 @@ func main() {
 	if err := client.SetFreq(station); err != nil {
 		log.Fatalf("Error setting Freq: %v", err)
 	}
+	// get SQL
+	sql, err := client.GetSql()
+	if err != nil {
+		log.Fatalf("Error getting sql: %v", err)
+	}
+	fmt.Printf("SQL: %.2f\n", sql)
+	// get signal strength
+	strength, err := client.GetSigStrength()
+	if err != nil {
+		return
+	}
+	fmt.Printf("Strength: %.2f\n", strength)
+	// set SQL
+	if err := client.SetSql(-150); err != nil {
+		log.Fatalf("Error setting sql: %v", err)
+	}
 	// disconnect
 	if err := client.Disconnect(); err != nil {
 		log.Fatalf("Error disconnecting: %v", err)
 	}
 }
 ```
+
+## Resources
+
+[GQRX remote API](https://github.com/gqrx-sdr/gqrx/blob/master/resources/remote-control.txt)

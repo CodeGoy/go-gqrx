@@ -34,18 +34,14 @@ type Client struct {
 	msgChan chan string
 }
 
-// NewClient returns  Client
-// Arg: (addr string)
-//
+// NewClient
+// returns  Client
 // Default GQRX port : 7356
 //
-// Example:
-//
 //	   addr := "127.0.0.1:7356"
-//	   Client := gqrx.NewClient(addr)
-//	   if err := Client.Connect(); err != nil {
-//		      log.Printf("Error connecting: %v", err)
-//		      return
+//	   client := gqrx.NewClient(addr)
+//	   if err := client.Connect(); err != nil {
+//		      log.Fatalf("Error connecting: %v", err)
 //	   }
 func NewClient(addr string) *Client {
 	newClient := &Client{addr: addr}
@@ -53,7 +49,13 @@ func NewClient(addr string) *Client {
 	return newClient
 }
 
-// Connect Connect to GQRX
+// Connect
+//
+//	 Connect to GQRX
+//
+//	   if err := client.Connect(); err != nil {
+//		      log.Fatalf("Error connecting: %v", err)
+//	   }
 func (c *Client) Connect() error {
 	var err error
 	c.conn, err = net.Dial("tcp", c.addr)
@@ -66,6 +68,13 @@ func (c *Client) Connect() error {
 	return nil
 }
 
+// Disconnect
+// Send disconnect command to GQRX
+// close net connection
+//
+//	if err := client.Disconnect(); err != nil {
+//	    log.Fatalf("Error disconnecting: %v", err)
+//	}
 func (c *Client) Disconnect() error {
 	if err := c.sendMsg(GQRX_Close_conn); err != nil {
 		return fmt.Errorf("gqrx: disconnect failed: %v", err)
@@ -78,9 +87,7 @@ func (c *Client) Disconnect() error {
 
 // SetDemod (mode string, bandwidth int64)
 //
-// Example:
-//
-//	if err := Client.SetDemod("WFM_ST", 160000); err != nil {
+//	if err := client.SetDemod("WFM_ST", 160000); err != nil {
 //		return
 //	}
 func (c *Client) SetDemod(mode string, bandwidth int64) error {
@@ -100,15 +107,14 @@ func (c *Client) SetDemod(mode string, bandwidth int64) error {
 	return nil
 }
 
-// GetDemod return mode as string and mode bandwidth as int64
+// GetDemod
+// return mode as string and mode bandwidth as int64
 //
-// Example:
-//
-//	currentMode, currentBandwidth, err := Client.GetDemod()
+//	mode, bandwidth, err := client.GetDemod()
 //	if err != nil {
-//		return
+//	    log.Fatalf("Error getting current mode: %v", err)
 //	}
-//	fmt.Printf("Mode: %s\nBandwidth: %d\n", currentMode, currentBandwidth)
+//	fmt.Printf("Mode: %s\nBandwidth: %d\n", mode, bandwidth)
 func (c *Client) GetDemod() (string, int64, error) {
 	// Gqrx returns two lines, line 1 = mode string, line 2 = mode bandwidth
 	modValue, err := c.getString(GQRX_Get_Demod)
@@ -122,7 +128,16 @@ func (c *Client) GetDemod() (string, int64, error) {
 	return modValue, bandwidthInt, nil
 }
 
-// GetDspStatus Return the status if the DSP
+// GetDspStatus
+// Return the status if the DSP
+//
+//	dspStatus, err := client.GetDspStatus()
+//	if err != nil {
+//	   log.Fatalf("Error getting DSP status: %v", err)
+//	}
+//	if dspStatus {
+//	    fmt.Println("DSP is running")
+//	}
 func (c *Client) GetDspStatus() (bool, error) {
 	dspStatus, err := c.getInt64("u DSP")
 	if err != nil {
@@ -134,7 +149,15 @@ func (c *Client) GetDspStatus() (bool, error) {
 	return false, nil
 }
 
-// SetDspStatus true = play, false = stop
+// SetDspStatus
+// true = start
+// false = stop
+//
+//	   // turn on DSP
+//	   err := client.SetDspStatus(true)
+//	   if err != nil {
+//		      log.Fatalf("Error setting DSP status: %v", err)
+//	   }
 func (c *Client) SetDspStatus(status bool) error {
 	playCommand := "U DSP 0"
 	if status {
@@ -147,6 +170,16 @@ func (c *Client) SetDspStatus(status bool) error {
 }
 
 // GetMute
+// Get DSP mute status
+// true = running, false = stopped
+//
+//		muted, err := client.GetMute()
+//		if err != nil {
+//		    log.Fatalf("failed to get mute status: %v", err)
+//		}
+//		if muted {
+//	        fmt.Println("DSP is muted")
+//		}
 func (c *Client) GetMute() (bool, error) {
 	muteStatus, err := c.getInt64(GQRX_Get_Mute)
 	if err != nil {
@@ -158,7 +191,12 @@ func (c *Client) GetMute() (bool, error) {
 	return true, nil
 }
 
-// SetMute true = mute, false = unmute
+// SetMute
+// true = mute, false = unmute
+//
+//	if err := client.SetMute(false); err != nil {
+//	    log.Fatalf("Error setting mute: %v", err)
+//	}
 func (c *Client) SetMute(input bool) error {
 	muteStatus := 0
 	if input {
@@ -170,12 +208,24 @@ func (c *Client) SetMute(input bool) error {
 	return nil
 }
 
-// GetSql returns SQL as float64
+// GetSql
+// returns SQL as float64
+//
+//	sql, err := client.GetSql()
+//	if err != nil {
+//	    log.Fatalf("Error getting sql: %v", err)
+//	}
+//	fmt.Printf("SQL: %.2f\n", sql)
 func (c *Client) GetSql() (float64, error) {
 	return c.getFloat(GQRX_Get_Sql)
 }
 
-// SetSql float64 set SQL
+// SetSql
+// set SQL float64
+//
+//	if err := client.SetSql(64.0); err != nil {
+//	    log.Fatalf("Error setting sql: %v", err)
+//	}
 func (c *Client) SetSql(input float64) error {
 	if _, err := c.getString(fmt.Sprintf("%s %.2f", GQRX_Set_Sql, input)); err != nil {
 		return fmt.Errorf("failed to set sql: %v", err)
@@ -183,12 +233,23 @@ func (c *Client) SetSql(input float64) error {
 	return nil
 }
 
-// GetSigStrength Return signal strength
+// GetSigStrength
+// Return signal strength as float64
+//
+//	strength, err := client.GetSigStrength()
+//	if err != nil {
+//	    return
+//	}
+//	fmt.Printf("Strength: %.2f\n", strength)
 func (c *Client) GetSigStrength() (float64, error) {
 	return c.getFloat(GQRX_Get_Sig_Strength)
 }
 
-// SetFreq wonder What this does?
+// SetFreq
+//
+//	if err := client.SetFreq(station); err != nil {
+//	    log.Fatalf("Error setting Freq: %v", err)
+//	}
 func (c *Client) SetFreq(freq int64) error {
 	_, err := c.getString(GQRX_Set_Freq + fmt.Sprintf(" %d", freq))
 	if err != nil {
@@ -197,7 +258,13 @@ func (c *Client) SetFreq(freq int64) error {
 	return nil
 }
 
-// GetFreq return
+// GetFreq
+//
+//	freq, err := client.GetFreq()
+//	if err != nil {
+//	    log.Fatalf("Error getting frequency: %v", err)
+//	}
+//	fmt.Printf("Freq: %d\n", freq)
 func (c *Client) GetFreq() (int64, error) {
 	return c.getInt64(GQRX_Get_Freq)
 }
